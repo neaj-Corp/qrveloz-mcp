@@ -1,0 +1,359 @@
+# QrVeloz MCP Server
+
+> Dynamic QR codes — create, retarget, and inspect from any AI assistant.  
+> No account required to start.
+
+[![MCP Compatible](https://img.shields.io/badge/MCP-Compatible-blue)](https://modelcontextprotocol.io)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
+
+---
+
+## What is QrVeloz?
+
+QrVeloz is a dynamic QR code service. Unlike static QR codes, QrVeloz codes are **retargetable** — you print once and change the destination at any time without reprinting. Track every scan with real-time analytics, schedule automatic URL switches, and manage everything from your AI assistant via MCP.
+
+**MCP Server URL:** `https://qrveloz.com/api/mcp`
+
+No signup needed. Request an API key once and start creating codes immediately.
+
+---
+
+## Quick Start (30 seconds)
+
+### 1 — Add the server to your AI client
+
+See [`mcp-config-examples/`](mcp-config-examples/) for ready-to-paste configs:
+
+| Client | Config file |
+|--------|-------------|
+| Claude Desktop (macOS / Linux) | [claude-desktop.json](mcp-config-examples/claude-desktop.json) |
+| Claude Desktop (Windows) | [claude-desktop-windows.json](mcp-config-examples/claude-desktop-windows.json) |
+| Claude Code | [claude-code.json](mcp-config-examples/claude-code.json) |
+| Cursor | [cursor.json](mcp-config-examples/cursor.json) |
+| VS Code with GitHub Copilot | [vscode-copilot.json](mcp-config-examples/vscode-copilot.json) |
+| Continue | [continue.json](mcp-config-examples/continue.json) |
+| Any other HTTP MCP client | [generic.md](mcp-config-examples/generic.md) |
+
+> **Claude Desktop on Windows:** use `claude-desktop-windows.json`. The standard `npx` command fails on Windows when Node.js is installed in `C:\Program Files` due to a path-with-spaces issue. The Windows config uses `cmd /c` to work around this.
+
+> **VS Code:** requires VS Code 1.96 or later with the GitHub Copilot extension. Place the config at `.vscode/mcp.json` in your workspace root.
+
+### 2 — Get a free API token
+
+No email or password required. In your AI assistant, say:
+
+```
+Use the QrVeloz MCP tool to request an API key
+```
+
+The token is shown **only once** — save it immediately.
+
+> **Note:** There is a limit of one token request per IP per 24 hours to prevent abuse. If the call fails, wait 24 hours or sign up at [qrveloz.com](https://qrveloz.com) for a permanent account.
+
+> **⚠️ QR code lifetime:** Guest QR codes are permanently deleted ~180 days after the token is issued (90-day token + 90-day grace period). Claim your account at [qrveloz.com/claim](https://qrveloz.com/claim) before the token expires to keep your codes permanently.
+
+### 3 — Add the token to your client config
+
+Replace `YOUR_API_KEY` in the config file with your token, then restart your AI client:
+
+```
+Authorization: Bearer qrv_...
+```
+
+### 4 — Create your first QR code
+
+```
+Use the QrVeloz MCP tool to create a QR code with the title "My first QR" pointing to https://example.com
+```
+
+Your QR code is live at `https://qrveloz.com/r/{shortCode}`. Print it — you can change the destination any time.
+
+---
+
+## Tools Reference
+
+| Tool | Auth | Description |
+|------|------|-------------|
+| `request_api_key` | None | Get a free 90-day API token. No signup. |
+| `create_qr_code` | Optional* | Create a dynamic QR code. |
+| `get_qr_code` | Required | Look up a QR code by ID or short code. |
+| `list_qr_codes` | Required | List all your QR codes with short URLs and destinations. |
+| `get_qr_scans` | Required | Get the total lifetime scan count for a QR code. |
+| `update_qr_target` | Required | Change where a QR code redirects — no reprinting needed. |
+| `delete_qr_code` | Required | Permanently delete a QR code and its scan history. |
+| `get_account_info` | Required | Check your plan, usage, and remaining QR code capacity. |
+
+*Anonymous `create_qr_code` returns an ephemeral CDN image URL (not stored, not retargetable). Authenticated users get a permanent short URL. All authenticated tool responses are returned as pre-formatted markdown tables — display them exactly as received.
+
+---
+
+### `request_api_key`
+
+No parameters. Returns a 90-day token. Free accounts get up to 5 QR codes.
+
+> **⚠️ Important lifetime warning:** The token expires after 90 days. QR codes are **permanently deleted** approximately 90 days after token expiry (~180 days total from creation). To keep your QR codes alive permanently, visit [qrveloz.com/claim](https://qrveloz.com/claim) **before** the token expires to link an email address.
+
+**Example prompt:**
+```
+Use the QrVeloz MCP tool to request an API key
+```
+
+---
+
+### `create_qr_code`
+
+| Parameter | Type | Required | Description |
+|-----------|------|----------|-------------|
+| `title` | string | Yes | Human-readable label (1–200 chars) |
+| `target_url` | string (URL) | Yes | Destination URL — must start with `https://` or `http://` |
+
+When you ask your AI assistant to create a QR code, it returns a formatted table like this:
+
+**Example output (authenticated):**
+
+| Field | Value |
+|---|---|
+| Title | Summer Sale |
+| ID | clxyz1234abcdef567890 |
+| Short Code | ab3k9x |
+| Short URL | https://qrveloz.com/r/ab3k9x |
+| Destination | https://example.com/sale |
+| Status | Active |
+| Created | April 11, 2026 |
+| QR Code Link | [Download QR Image](https://cdn.digitaloceanspaces.com/qrveloz/qr-temp/ab3k9x.png) |
+
+Guest accounts receive an additional warning block reminding them to claim their account before the token expires.
+
+**Example prompt:**
+```
+Use the QrVeloz MCP tool to create a QR code titled "Summer Sale" pointing to https://example.com/sale
+```
+
+---
+
+### `get_qr_code`
+
+| Parameter | Type | Required | Description |
+|-----------|------|----------|-------------|
+| `qr_code_id` | string | One of | Internal UUID from `create_qr_code` or `list_qr_codes` |
+| `short_code` | string | One of | Short code from the redirect URL (e.g. `abc123`) |
+
+Your AI assistant returns a formatted table like this:
+
+**Example output:**
+
+| Field | Value |
+|---|---|
+| Title | Summer Sale |
+| ID | clxyz1234abcdef567890 |
+| Short Code | ab3k9x |
+| Short URL | https://qrveloz.com/r/ab3k9x |
+| Destination | https://example.com/sale |
+| Status | Active |
+| Created | April 11, 2026 |
+| QR Code Link | [Download QR Image](https://cdn.digitaloceanspaces.com/qrveloz/qr-temp/ab3k9x.png) |
+
+**Example prompt:**
+```
+Use the QrVeloz MCP tool to get details for QR code with short code abc123
+```
+
+---
+
+### `list_qr_codes`
+
+| Parameter | Type | Required | Description |
+|-----------|------|----------|-------------|
+| `page` | integer | No | Page number (default: 1) |
+| `limit` | integer | No | Items per page, max 20 (default: 20) |
+
+Your AI assistant returns a summary line followed by one formatted table per QR code:
+
+**Example output:**
+
+Showing 2 of 2 QR code(s) (page 1)
+
+| Field | Value |
+|---|---|
+| Title | Summer Sale |
+| ID | clxyz1234abcdef567890 |
+| Short Code | ab3k9x |
+| Short URL | https://qrveloz.com/r/ab3k9x |
+| Destination | https://example.com/sale |
+| Status | Active |
+| Created | April 11, 2026 |
+| QR Code Link | [Download QR Image](https://cdn.digitaloceanspaces.com/qrveloz/qr-temp/ab3k9x.png) |
+
+| Field | Value |
+|---|---|
+| Title | Conference Badge |
+| ID | clxyz9876zyxwvu54321 |
+| Short Code | tz7m2p |
+| Short URL | https://qrveloz.com/r/tz7m2p |
+| Destination | https://example.com/conference |
+| Status | Active |
+| Created | April 13, 2026 |
+| QR Code Link | [Download QR Image](https://cdn.digitaloceanspaces.com/qrveloz/qr-temp/tz7m2p.png) |
+
+**Example prompt:**
+```
+Use the QrVeloz MCP tool to list all my QR codes
+```
+
+---
+
+### `get_qr_scans`
+
+| Parameter | Type | Required | Description |
+|-----------|------|----------|-------------|
+| `qr_code_id` | string | Yes | Internal UUID of the QR code |
+
+Your AI assistant returns the same table as `get_qr_code` with an additional **Total Scans** row appended:
+
+**Example output:**
+
+| Field | Value |
+|---|---|
+| Title | Summer Sale |
+| ID | clxyz1234abcdef567890 |
+| Short Code | ab3k9x |
+| Short URL | https://qrveloz.com/r/ab3k9x |
+| Destination | https://example.com/sale |
+| Status | Active |
+| Created | April 11, 2026 |
+| QR Code Link | [Download QR Image](https://cdn.digitaloceanspaces.com/qrveloz/qr-temp/ab3k9x.png) |
+| Total Scans | 147 |
+
+**Example prompt:**
+```
+Use the QrVeloz MCP tool to get the scan count for QR code clxyz...
+```
+
+---
+
+### `update_qr_target`
+
+| Parameter | Type | Required | Description |
+|-----------|------|----------|-------------|
+| `qr_code_id` | string | One of | Internal UUID |
+| `short_code` | string | One of | Short code from the redirect URL |
+| `target_url` | string (URL) | Yes | New destination URL |
+
+> **Note:** PDF and audio QR codes cannot be updated via MCP. Manage those from the dashboard.
+
+**Example prompt:**
+```
+Use the QrVeloz MCP tool to update QR code abc123 to point to https://example.com/new-page
+```
+
+---
+
+### `delete_qr_code`
+
+| Parameter | Type | Required | Description |
+|-----------|------|----------|-------------|
+| `qr_code_id` | string | One of | Internal UUID |
+| `short_code` | string | One of | Short code from the redirect URL |
+| `confirm_title` | string | Yes | Exact title of the QR code — must match character-for-character to prevent accidental deletions |
+
+**Example prompt:**
+```
+Use the QrVeloz MCP tool to delete the QR code titled "Old Campaign"
+```
+
+---
+
+### `get_account_info`
+
+No parameters. Returns your current plan, feature flags, QR code usage, and remaining capacity. Useful for AI agents to check before attempting to create codes.
+
+**Example prompt:**
+```
+Use the QrVeloz MCP tool to show my account info
+```
+
+---
+
+## Authentication
+
+| Mode | Header | Limits |
+|------|--------|--------|
+| Anonymous | *(none)* | Up to 30 ephemeral images/day — not stored, not retargetable |
+| Bearer token | `Authorization: Bearer qrv_...` | Up to 5 stored codes (Free plan) · 60 req/min across all tools |
+
+Get a token instantly — no email required.  
+To claim a permanent account: [qrveloz.com/claim](https://qrveloz.com/claim)
+
+---
+
+## REST API
+
+A full REST API is also available for direct HTTP integrations.
+
+- Interactive docs: [qrveloz.com/docs/api](https://qrveloz.com/docs/api) ↗
+- OpenAPI spec: [`openapi.yaml`](openapi.yaml)
+
+---
+
+## Examples
+
+Ready-to-run scripts are in:
+
+- [`examples/js/`](examples/js/) — Node.js 18+ (no dependencies, uses native `fetch`)
+- [`examples/python/`](examples/python/) — Python 3.8+ (requires `requests`)
+
+---
+
+## Troubleshooting
+
+### The AI assistant doesn't recognise the tool name
+
+Do not type tool names as function calls (e.g. `request_api_key()`). Use natural language instead:
+
+> "Use the QrVeloz MCP tool to request an API key"
+
+### Claude Desktop: `'C:\Program' is not recognized` (Windows)
+
+This is a Windows path-with-spaces error. Node.js installed in `C:\Program Files` causes `cmd.exe` to fail when the path is not quoted.
+
+**Fix:** use [`claude-desktop-windows.json`](mcp-config-examples/claude-desktop-windows.json) which uses `cmd /c` to avoid the issue.
+
+### The MCP server is not connecting
+
+**Claude Desktop:**
+1. Check the **hammer icon** (🔨) in the chat input bar — it lists connected servers. If QrVeloz is missing, the server failed to connect.
+2. Open logs via `Help → Open Logs Folder` and look for errors from the `qrveloz` server.
+3. Make sure Node.js 18+ is installed (`node --version`) and `npx` is available (`npx --version`).
+4. Test the connection manually: `npx -y mcp-remote https://qrveloz.com/api/mcp`
+
+**VS Code with GitHub Copilot:**
+1. Open the Command Palette (`Ctrl+Shift+P`) and run `MCP: List Servers` — QrVeloz should appear with status `running`.
+2. If it shows an error, check that VS Code is 1.96+ and the Copilot extension is active.
+3. Make sure `.vscode/mcp.json` is saved and the workspace is open.
+
+**Cursor / Continue / other HTTP clients:**
+1. Verify the URL is exactly `https://qrveloz.com/api/mcp` — no trailing slash.
+2. Confirm the `Authorization` header value starts with `Bearer ` (note the space).
+3. Test the endpoint directly: `curl -X POST https://qrveloz.com/api/mcp -H "Content-Type: application/json" -d '{"jsonrpc":"2.0","id":1,"method":"initialize","params":{"protocolVersion":"2025-03-26","capabilities":{},"clientInfo":{"name":"test","version":"1.0"}}}'`
+
+### Token was shown but I did not save it
+
+Guest tokens cannot be recovered once the response is dismissed. Options:
+- Wait 24 hours and call `request_api_key` again from the same IP
+- Sign up at [qrveloz.com](https://qrveloz.com) for a permanent account with token management in the Settings dashboard
+
+### Rate limit hit on `request_api_key`
+
+One guest token is issued per IP per 24 hours to prevent abuse. If you hit the limit, wait 24 hours or create a free account at [qrveloz.com](https://qrveloz.com).
+
+---
+
+## Pricing
+
+See [qrveloz.com/#pricing](https://qrveloz.com/#pricing) for current plan details and limits.
+
+---
+
+## License
+
+MIT — see [LICENSE](LICENSE).
